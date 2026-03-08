@@ -1,76 +1,107 @@
 import { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
-function Login(){
+function Login() {
 
-const [username,setUsername] = useState("")
-const [password,setPassword] = useState("")
-const [message,setMessage] = useState("")
+const [username, setUsername] = useState("");
+const [password, setPassword] = useState("");
 
-const navigate = useNavigate()
+const navigate = useNavigate();
 
-const handleLogin = async () => {
+const handleLogin = (e) => {
+e.preventDefault();
 
-try{
-
-const res = await axios.post(
-"http://127.0.0.1:8000/login",
-{
-username:username,
-password:password
+if(username === "rahul" && password === "1234"){
+    navigate("/home");
 }
-)
-
-if(res.data.message === "Login successful"){
-
-navigate("/home")
-
-}else{
-
-setMessage(res.data.message)
-
+else{
+    alert("Invalid username or password");
 }
 
-}catch(error){
-
-setMessage("Login failed")
-
-}
-
-}
+};
 
 return(
 
-<div style={{textAlign:"center",marginTop:"100px"}}>
+<div style={{
+display:"flex",
+justifyContent:"center",
+alignItems:"center",
+height:"100vh",
+background:"#0f172a"
+}}>
 
-<h2>Login</h2>
+<div style={{
+background:"#1e293b",
+padding:"40px",
+borderRadius:"10px",
+width:"350px",
+textAlign:"center",
+color:"white"
+}}>
+
+<h2>AI Expense Tracker</h2>
+<p>Login to continue</p>
+
+<form onSubmit={handleLogin}>
 
 <input
+type="text"
 placeholder="Username"
+value={username}
 onChange={(e)=>setUsername(e.target.value)}
+style={{
+width:"100%",
+padding:"10px",
+marginTop:"10px",
+borderRadius:"5px",
+border:"none"
+}}
 />
-
-<br/><br/>
 
 <input
 type="password"
 placeholder="Password"
+value={password}
 onChange={(e)=>setPassword(e.target.value)}
+style={{
+width:"100%",
+padding:"10px",
+marginTop:"10px",
+borderRadius:"5px",
+border:"none"
+}}
 />
 
-<br/><br/>
-
-<button onClick={handleLogin}>
+<button
+type="submit"
+style={{
+width:"100%",
+padding:"10px",
+marginTop:"15px",
+background:"#3b82f6",
+color:"white",
+border:"none",
+borderRadius:"5px",
+cursor:"pointer"
+}}
+>
 Login
 </button>
 
-<p>{message}</p>
+</form>
+
+<p style={{marginTop:"15px",fontSize:"12px"}}>
+Demo Login <br/>
+Username: rahul <br/>
+Password: 1234
+</p>
 
 </div>
 
-)
+</div>
+
+);
 
 }
 
-export default Login
+export default Login;
