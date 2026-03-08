@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+import re
 
 from database import engine, SessionLocal
 import models
@@ -9,39 +9,32 @@ import crud
 
 app = FastAPI()
 
-# create database tables
+# Create tables
 models.Base.metadata.create_all(bind=engine)
 
-# ---------------------------
+# -------------------------
 # CORS CONFIGURATION
-# ---------------------------
+# -------------------------
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # allow all domains (for deployment)
+    allow_origins=["*"],   # allow all domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# handle browser preflight
-@app.options("/{rest_of_path:path}")
-async def preflight_handler(rest_of_path: str):
-    return JSONResponse(content={"message": "OK"})
-
-
-# ---------------------------
+# -------------------------
 # HOME API
-# ---------------------------
+# -------------------------
 
 @app.get("/")
 def home():
     return {"message": "AI Expense Tracker Backend Running"}
 
-
-# ---------------------------
-# GET ALL EXPENSES
-# ---------------------------
+# -------------------------
+# GET EXPENSES
+# -------------------------
 
 @app.get("/expenses")
 def get_expenses():
@@ -60,26 +53,35 @@ def get_expenses():
 
     return result
 
-
-# ---------------------------
+# -------------------------
 # CHATBOT API
-# ---------------------------
+# -------------------------
 
 @app.post("/chat")
 def chat(data: dict):
 
     db: Session = SessionLocal()
 
-    message = data.get("message").lower()
+    message = data.get("message", "").lower()
+
+    # Extract amount using regex
+    amount_match = re.search(r"\d+", message)
 
     words = message.split()
 
+    # -------------------------
     # ADD EXPENSE
-    if "spent" in words or "cost" in words or "paid" in words:
+    # -------------------------
+
+    if "spent" in message or "cost" in message or "paid" in message:
 
         try:
 
-            amount = float([w for w in words if w.isdigit()][0])
+            if not amount_match:
+                return {"response": "Could not understand expense"}
+
+            amount = float(amount_match.group())
+
             category = words[-1]
 
             crud.create_expense(
@@ -97,8 +99,11 @@ def chat(data: dict):
         except:
             return {"response": "Could not understand expense"}
 
+    # -------------------------
     # SHOW EXPENSES
-    elif "show" in words:
+    # -------------------------
+
+    elif "show" in message:
 
         expenses = crud.get_expenses(db)
 
@@ -109,12 +114,18 @@ def chat(data: dict):
 
         return {"response": result if result else "No expenses found"}
 
+    # -------------------------
     # UPDATE LAST EXPENSE
-    elif "update" in words:
+    # -------------------------
+
+    elif "update" in message:
 
         try:
 
-            new_amount = float(words[-1])
+            if not amount_match:
+                return {"response": "Invalid update amount"}
+
+            new_amount = float(amount_match.group())
 
             updated = crud.update_last_expense(db, new_amount)
 
@@ -124,10 +135,13 @@ def chat(data: dict):
             return {"response": "No expense found to update"}
 
         except:
-            return {"response": "Invalid update amount"}
+            return {"response": "Update failed"}
 
+    # -------------------------
     # DELETE EXPENSE
-    elif "delete" in words:
+    # -------------------------
+
+    elif "delete" in message:
 
         deleted = crud.delete_last_expense(db)
 
@@ -138,7 +152,10 @@ def chat(data: dict):
 
         return {"response": "No expense to delete"}
 
-    # AI INSIGHTS
+    # -------------------------
+    # SPENDING INSIGHTS
+    # -------------------------
+
     elif "insight" in message or "analysis" in message:
 
         expenses = crud.get_expenses(db)
@@ -164,7 +181,10 @@ def chat(data: dict):
 
         return {"response": "No expense data available"}
 
+    # -------------------------
     # DEFAULT RESPONSE
+    # -------------------------
+
     else:
 
         return {
