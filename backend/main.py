@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from database import engine, SessionLocal
@@ -8,35 +9,40 @@ import crud
 
 app = FastAPI()
 
-# create tables
+# create database tables
 models.Base.metadata.create_all(bind=engine)
 
-# CORS settings
-origins = [
-    "http://localhost:5173",
-    "https://ai-expense-tracker-beta-eight.vercel.app"
-]
+# ---------------------------
+# CORS CONFIGURATION
+# ---------------------------
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],   # allow all domains (for deployment)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# context memory
-last_expense = None
+# handle browser preflight
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(rest_of_path: str):
+    return JSONResponse(content={"message": "OK"})
 
+
+# ---------------------------
+# HOME API
+# ---------------------------
 
 @app.get("/")
 def home():
     return {"message": "AI Expense Tracker Backend Running"}
 
 
-# -------------------------
+# ---------------------------
 # GET ALL EXPENSES
-# -------------------------
+# ---------------------------
+
 @app.get("/expenses")
 def get_expenses():
 
@@ -55,13 +61,12 @@ def get_expenses():
     return result
 
 
-# -------------------------
+# ---------------------------
 # CHATBOT API
-# -------------------------
+# ---------------------------
+
 @app.post("/chat")
 def chat(data: dict):
-
-    global last_expense
 
     db: Session = SessionLocal()
 
@@ -75,7 +80,6 @@ def chat(data: dict):
         try:
 
             amount = float([w for w in words if w.isdigit()][0])
-
             category = words[-1]
 
             crud.create_expense(
@@ -86,14 +90,12 @@ def chat(data: dict):
                 "today"
             )
 
-            last_expense = amount
-
             return {
                 "response": f"Added expense: {amount} for {category}"
             }
 
         except:
-            return {"response": "Could not understand the expense."}
+            return {"response": "Could not understand expense"}
 
     # SHOW EXPENSES
     elif "show" in words:
@@ -105,9 +107,7 @@ def chat(data: dict):
         for e in expenses:
             result += f"{e.category}: {e.amount}\n"
 
-        return {
-            "response": result if result else "No expenses found"
-        }
+        return {"response": result if result else "No expenses found"}
 
     # UPDATE LAST EXPENSE
     elif "update" in words:
@@ -119,16 +119,14 @@ def chat(data: dict):
             updated = crud.update_last_expense(db, new_amount)
 
             if updated:
-                return {
-                    "response": f"Updated last expense to {new_amount}"
-                }
+                return {"response": f"Updated last expense to {new_amount}"}
 
-            return {"response": "No expense to update"}
+            return {"response": "No expense found to update"}
 
         except:
             return {"response": "Invalid update amount"}
 
-    # DELETE LAST EXPENSE
+    # DELETE EXPENSE
     elif "delete" in words:
 
         deleted = crud.delete_last_expense(db)
@@ -140,59 +138,31 @@ def chat(data: dict):
 
         return {"response": "No expense to delete"}
 
-    # CONTEXT AWARENESS
-    elif "make that" in message:
-
-        try:
-
-            new_amount = float(words[-1])
-
-            updated = crud.update_last_expense(db, new_amount)
-
-            return {
-                "response": f"Updated last expense to {new_amount}"
-            }
-
-        except:
-            return {"response": "Context update failed"}
-
-    # INSIGHTS
+    # AI INSIGHTS
     elif "insight" in message or "analysis" in message:
 
         expenses = crud.get_expenses(db)
 
         total = sum([e.amount for e in expenses])
 
-        category_totals = {}
+        categories = {}
 
         for e in expenses:
-
-            if e.category in category_totals:
-                category_totals[e.category] += e.amount
+            if e.category in categories:
+                categories[e.category] += e.amount
             else:
-                category_totals[e.category] = e.amount
+                categories[e.category] = e.amount
 
-        if category_totals:
+        if categories:
 
-            highest = max(category_totals, key=category_totals.get)
+            highest = max(categories, key=categories.get)
 
             return {
                 "response":
                 f"Total spent {total}. Highest spending category: {highest}"
             }
 
-        return {"response": "No spending data yet"}
-
-    # FOOD QUERY
-    elif "food" in message and "spend" in message:
-
-        expenses = crud.get_expenses(db)
-
-        total = sum([e.amount for e in expenses if e.category == "food"])
-
-        return {
-            "response": f"You spent {total} on food"
-        }
+        return {"response": "No expense data available"}
 
     # DEFAULT RESPONSE
     else:
