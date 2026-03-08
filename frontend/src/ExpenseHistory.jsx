@@ -9,7 +9,7 @@ const [expenses,setExpenses] = useState([])
 
 useEffect(()=>{
 
-axios.get("http://127.0.0.1:8000/expenses")
+axios.get("https://ai-expense-tracker-qif2.onrender.com/expenses")
 .then(res=>{
 
 setExpenses(res.data)
