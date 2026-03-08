@@ -4,6 +4,12 @@ AI-powered expense tracking web application where users can manage expenses usin
 
 This project allows users to add, update, delete, and analyze expenses through conversational interaction with an AI assistant.
 
+Live Demo:
+https://ai-expense-tracker-beta-eight.vercel.app
+
+Demo Login:
+Username: rahul
+Password: 1234
 ---
 
 # Features
